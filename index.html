@@ -97,6 +97,13 @@
             feedback.innerText += "❌ Incorrect.";
             feedback.className = "incorrect";
           }
+          // Send feedback back to players
+          const writer = port.writable.getWriter();
+          const feedbackMsg = `${id}:${ans === correct ? "CORRECT" : "WRONG"}\n`;
+          const encoded = new TextEncoder().encode(feedbackMsg);
+          await writer.write(encoded);
+          writer.releaseLock();
+
 
           document.getElementById("feedback").appendChild(feedback);
           updateScoreboard();
