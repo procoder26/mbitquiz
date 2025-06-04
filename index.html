@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Micro:bit Quiz Game</title>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    .correct { color: green; }
+    .incorrect { color: red; }
+    button { margin: 0.5rem 0; padding: 0.5rem 1rem; font-size: 1rem; }
+  </style>
+</head>
+<body>
+  <h1 id="question">Waiting to start...</h1>
+  <p id="choices"></p>
+  <div id="feedback"></div>
+  <p><strong>Scores:</strong></p>
+  <ul id="scoreboard"></ul>
+  <button onclick="connect()">🔗 Connect Micro:bit</button>
+  <button onclick="resetGame()" id="resetBtn" style="display:none;">🔄 Reset Game</button>
+
+  <script>
+    const questions = [
+      { q: "Capital of Italy?", a: "B", opts: ["A: Paris", "B: Rome"] },
+      { q: "Water freezes at 0°C?", a: "A", opts: ["A: True", "B: False"] },
+      { q: "Which is a prime?", a: "B", opts: ["A: 4", "B: 5"] },
+    ];
+
+    let current = 0;
+    let scores = {};
+    let answeredPlayers = new Set();
+    let port, reader;
+
+    function showQuestion() {
+      const q = questions[current];
+      document.getElementById("question").innerText = q.q;
+      document.getElementById("choices").innerText = q.opts.join(" | ");
+      document.getElementById("feedback").innerHTML = "";
+      answeredPlayers.clear();
+    }
+
+    function updateScoreboard() {
+      const ul = document.getElementById("scoreboard");
+      ul.innerHTML = "";
+      Object.entries(scores)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([player, score]) => {
+          const li = document.createElement("li");
+          li.innerText = `${player}: ${score}`;
+          ul.appendChild(li);
+        });
+    }
+
+    async function connect() {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+      const decoder = new TextDecoderStream();
+      port.readable.pipeTo(decoder.writable);
+      reader = decoder.readable.getReader();
+
+      document.getElementById("resetBtn").style.display = "none";
+      current = 0;
+      scores = {};
+      updateScoreboard();
+      showQuestion();
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const line = value.trim();
+        if (line === "NEXT") {
+          current++;
+          if (current < questions.length) {
+            showQuestion();
+          } else {
+            document.getElementById("question").innerText = "🏁 Quiz Complete!";
+            document.getElementById("choices").innerText = "";
+            document.getElementById("feedback").innerHTML += "<p><strong>🏆 Final Leaderboard:</strong></p>";
+            document.getElementById("resetBtn").style.display = "inline-block";
+          }
+        } else if (line.includes(":")) {
+          const [id, ans] = line.split(":");
+          const correct = questions[current].a;
+
+          if (answeredPlayers.has(id)) continue;
+          answeredPlayers.add(id);
+
+          if (!(id in scores)) scores[id] = 0;
+
+          const feedback = document.createElement("p");
+          feedback.innerText = `${id}: ${ans} → `;
+          if (ans === correct) {
+            scores[id] += 1;
+            feedback.innerText += "✅ Correct!";
+            feedback.className = "correct";
+          } else {
+            feedback.innerText += "❌ Incorrect.";
+            feedback.className = "incorrect";
+          }
+
+          document.getElementById("feedback").appendChild(feedback);
+          updateScoreboard();
+        }
+      }
+    }
+
+    function resetGame() {
+      current = 0;
+      scores = {};
+      answeredPlayers.clear();
+      updateScoreboard();
+      showQuestion();
+      document.getElementById("resetBtn").style.display = "none";
+    }
+  </script>
+</body>
+</html>
