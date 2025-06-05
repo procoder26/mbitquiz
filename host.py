@@ -2,6 +2,8 @@ from microbit import *
 import radio
 
 radio.on()
+radio.config(group=156)
+
 uart.init(baudrate=115200)
 
 while True:

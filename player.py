@@ -2,6 +2,7 @@ from microbit import *
 import radio
 
 radio.on()
+radio.config(group=156)
 player_id = "P1"  # Change to P2, P3, etc.
 
 while True:
